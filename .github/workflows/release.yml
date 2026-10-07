@@ -1,0 +1,300 @@
+#
+# SPDX-FileCopyrightText: 2026 Jens A. Koch
+# SPDX-License-Identifier: MIT
+#
+# This file is part of https://github.com/jakoch/freecad-devbox
+#
+
+name: Release
+
+on:
+  # You can manually run this workflow.
+  workflow_dispatch:
+  # This workflow runs on pushing a semantic versioned tag (e.g. v1.0.0).
+  # This workflow does not run when pushing to the main branch.
+  push:
+    #branches:
+    #  - main
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  # This workflow runs on schedule: every Sunday at 1 am.
+  schedule:
+    - cron: "0 1 * * 0"
+
+env:
+  DOCKERHUB_IMAGE: ${{ github.repository }}
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+
+# ---------------------------------------------------------------------------------------
+
+  build:
+
+# ---------------------------------------------------------------------------------------
+
+    name: "Build Container"
+    # https://github.com/actions/runner-images
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      packages: write
+      security-events: write  # required for trivy-action
+      id-token: write         # required for attest-build-provenance
+      attestations: write     # required for attest-build-provenance
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { platform: "linux/amd64", debian_version: "13", debian_codename: "trixie" }
+          - { platform: "linux/amd64", debian_version: "sid", debian_codename: "unstable" }
+          - { platform: "linux/amd64", debian_version: "14", debian_codename: "forky" }
+
+    # forky is Debian *testing* (no release date) and sid rolls continuously:
+    # a broken apt package must not redden the build for the supported image.
+    continue-on-error: ${{ matrix.config.debian_codename == 'forky' || matrix.config.debian_codename == 'unstable' }}
+
+    steps:
+      - name: ✂️ Free Disk Space
+        uses: jlumbroso/free-disk-space@v2.0.0 # https://github.com/jlumbroso/free-disk-space
+        with:
+          preinstalled-runtimes: true
+          docker-images: false
+
+      - name: 🤘 Checkout Code
+        uses: actions/checkout@v7 # https://github.com/actions/checkout
+
+      - name: 🔍 Run hadolint
+        uses: hadolint/hadolint-action@v3.5.0 # https://github.com/hadolint/hadolint-action
+        with:
+          dockerfile: .devcontainer/debian/${{ matrix.config.debian_version }}-${{ matrix.config.debian_codename }}/Dockerfile
+          no-fail: true
+
+      - name: 🔒 Login to DockerHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4 # https://github.com/docker/login-action
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🔒 Login to Github Container Registry (GHCR)
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4 # https://github.com/docker/login-action
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔽 Setup QEMU
+        uses: docker/setup-qemu-action@v4 # https://github.com/docker/setup-qemu-action
+        with:
+          platforms: ${{ matrix.config.platform }}
+
+      - name: 🔽 Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4 # https://github.com/docker/setup-buildx-action
+
+      # freecad-devbox:{debian_codename}-{{date}}                # only on scheduled builds
+      # freecad-devbox:{debian_codename}-{{version}}             # only on git tag
+      # freecad-devbox:{debian_codename}-{{major}}.{{minor}}     # only on git tag
+      # freecad-devbox:{debian_codename}-latest                  # always
+      #
+      # The codename prefix is what keeps the matrix legs apart: without it all
+      # three legs would push "latest" and the same semver tags to one repo.
+      - name: ✏ Setup Docker Metadata
+        id: metadata
+        uses: docker/metadata-action@v6 # https://github.com/docker/metadata-action
+        with:
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ env.DOCKERHUB_IMAGE }}
+          flavor: |
+            latest=auto
+            prefix=${{ matrix.config.debian_codename }}-
+          tags: |
+            type=schedule,pattern={{ date 'YYYYMMDD' }}
+            type=semver,pattern={{ version }}
+            type=semver,pattern={{ major }}.{{ minor }}
+            type=raw,value=latest
+
+      - name: ✏ Create info.json
+        run: |
+          jq -n --arg version "${{ github.ref_name }}" \
+                --arg commit "${{ github.sha }}" \
+                --arg date "$(date -u +%F)" \
+                '{ version: $version, commit: $commit, date: $date }' > info-${{ matrix.config.debian_codename }}.json
+
+      # Build Image. Single stage, so no `target:` - the Dockerfile's only FROM
+      # is the base image. load:true puts it in the local docker daemon for the
+      # SBOM/scan/run steps below.
+      - name: 📦 🚀 Build Image
+        id: build
+        uses: docker/build-push-action@v7 # https://github.com/docker/build-push-action
+        with:
+          context: .
+          file: .devcontainer/debian/${{ matrix.config.debian_version }}-${{ matrix.config.debian_codename }}/Dockerfile
+          platforms: ${{ matrix.config.platform }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          push: false
+          load: true
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:${{ matrix.config.debian_codename }}-latest-cache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:${{ matrix.config.debian_codename }}-latest-cache,mode=max
+
+      # This provides: ${{ steps.get_image_name.outputs.name }}
+      - name: Get image name
+        id: get_image_name
+        run: |
+          name=$(echo '${{ steps.build.outputs.metadata }}' | jq -r '."image.name" | split(",") | .[0]')
+          echo "name=$name" >> $GITHUB_OUTPUT
+
+      - name: Generate SBOM
+        id: generate-sbom
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.get_image_name.outputs.name }}
+          output-file: ${{ matrix.config.debian_codename }}-sbom.json
+
+      - name: 🔐 Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ steps.get_image_name.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+
+      # Version info straight out of the built image. The runtime scripts are
+      # already on PATH via /usr/local/bin (the Dockerfile symlinks them and
+      # chmods 0755 at build time), so nothing needs to be bind-mounted and the
+      # repo copy - which is mode 644 - is never involved.
+      - name: ℹ️ Run freecad-devbox Container to grab version info
+        id: run-container
+        run: |
+          README="README-${{ matrix.config.debian_codename }}.md"
+          VERSIONS="versions-${{ matrix.config.debian_codename }}.json"
+          echo "# freecad-devbox ${{ github.ref_name }} ($(date '+%Y-%m-%d'))" >> $README
+          echo -e "\n" >> $README
+          echo "OS Version:  Debian ${{ matrix.config.debian_version }} ${{ matrix.config.debian_codename }}" >> $README
+          echo "Image Version: ${{ steps.get_image_name.outputs.name }}" >> $README
+          echo -e "\n" >> $README
+          docker run --rm ${{ steps.get_image_name.outputs.name }} /bin/zsh -c "cat /etc/os-release"
+          docker run --rm ${{ steps.get_image_name.outputs.name }} show-tool-versions.sh --format json > $VERSIONS
+          cat $VERSIONS >> $README
+
+      - name: Push all images and all tags
+        run: |
+          docker push --all-tags ${{ env.GHCR_IMAGE }}
+          docker push --all-tags ${{ env.DOCKERHUB_IMAGE }}
+
+      - name: List Docker Images
+        run: |
+          docker images --format "table {{.ID}}\t{{.Repository}}\t{{.Tag}}\t{{.Size}}"
+          docker images --digests
+
+      # The tags the metadata action generated are the tags that got pushed.
+      # Recorded before the push so a failed push still leaves a record of what
+      # was intended, and so the tags are known without querying a registry.
+      - name: 🏷️ Record published image tags
+        env:
+          TAGS: ${{ steps.metadata.outputs.tags }}
+        run: |
+          jq -n \
+            --arg date "$(date -u +%F)" \
+            --arg ref "${{ github.ref_name }}" \
+            --arg codename "${{ matrix.config.debian_codename }}" \
+            --arg tags "$TAGS" \
+            'def tag_names: split("\n") | map(select(length > 0) | split(":") | last) | unique;
+             { date: $date, ref: $ref, codename: $codename,
+               tags: ($tags | tag_names) }' \
+            > build-tags-${{ matrix.config.debian_codename }}.json
+          cat build-tags-${{ matrix.config.debian_codename }}.json
+
+      # Smoke-test the built image the way a user would. Dockerfile step 8 already
+      # ran all of this at build time, so the value here is proving the
+      # *published* artifact survived the round trip and that the entrypoint
+      # still execs a passed CMD. The addon probes need no XDG_DATA_HOME
+      # juggling: inside the container FreeCAD resolves its own user dir
+      # (/home/vscode) and puts every Mod/<dir> on sys.path itself.
+      - name: Test Docker Image
+        run: |
+          docker run --rm ${{ steps.get_image_name.outputs.name }} /bin/zsh -c '
+            set -e
+            compare-versions.sh --strict
+            freecadcmd -c "import Part; assert Part.makeBox(1, 1, 1).Volume > 0"
+            echo "geometry OK"
+            vj=/usr/local/share/freecad-devbox/versions.json
+            # Splitting rules differ: zsh word-splits an unquoted command
+            # substitution but NOT an unquoted variable, so the list is read
+            # line by line from a here-string instead of `for p in $var`.
+            # The explicit || guard matters too: a `for` over a failed
+            # substitution would iterate zero times and pass vacuously.
+            probes=$(jq -r ".addons[].probe // empty" "$vj") || exit 1
+            test -n "$probes" || { echo "no addon probes in $vj" >&2; exit 1; }
+            while read -r probe; do
+              PROBE="$probe" freecadcmd -c "import os; __import__(os.environ[\"PROBE\"])"
+              echo "addon probe ok: $probe"
+            done <<< "$probes"
+            echo "container test passed"
+          '
+
+      - name: 📦 Provide the version info and info.json as a release asset
+        uses: actions/upload-artifact@v7 # https://github.com/actions/upload-artifact
+        with:
+          name: version-info-${{ matrix.config.debian_codename }}
+          path: |
+            info-${{ matrix.config.debian_codename }}.json
+            build-tags-${{ matrix.config.debian_codename }}.json
+            versions-${{ matrix.config.debian_codename }}.json
+            README-${{ matrix.config.debian_codename }}.md
+            ${{ matrix.config.debian_codename }}-sbom.json
+
+      - name: 🛡️🔍 Scan Image for Vulnerabilities using Trivy
+        uses: aquasecurity/trivy-action@master # https://github.com/aquasecurity/trivy-action
+        with:
+          #image-ref: '${{ env.GHCR_IMAGE }}:latest'
+          image-ref: '${{ steps.get_image_name.outputs.name }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          skip-files: /etc/ssh/ssh_host_rsa_key
+          skip-dirs: gcc-13.2.0,gcc-13.3.0,usr/lib64
+      # Notes for the skips:
+      # - skip-files: /etc/ssh/ssh_host_rsa_key
+      #   The file is skipped, because its reported as "Asymmetric Private Key" alert.
+      #   This is a false positive, because the file is a private key, which is intended to be there.
+      # - skip-dirs: gcc-13.2.0,usr/lib64
+      #   The folders are skipped, because the folders contain many files, which
+      #   are not relevant for the image security. The scan is faster without them.
+
+      - name: 🛡️🔼 Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4.38.2 # https://github.com/github/codeql-action
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 🛡️🔍 Scan Image for Vulnerabilities using Dockle
+        if: always()
+        uses: goodwithtech/dockle-action@v0.4.15 # https://github.com/goodwithtech/dockle-action
+        with:
+          #image: '${{ env.GHCR_IMAGE }}:latest'
+          image: '${{ steps.get_image_name.outputs.name }}'
+          format: 'list'
+          exit-code: '0'
+          exit-level: 'warn'
+
+      # - name: 🛡️🔍 Scan Image for Vulnerabilities using Docker Scout
+      #   uses: docker/scout-action@v1 # https://github.com/docker/scout-action
+      #   with:
+      #     command: cves,recommendations
+      #     only-severities: critical,high
+      #     image: ${{ steps.metadata.outputs.tags }}
+      #     format: 'json'
+      #     sarif-file: 'scout-results.sarif.json'
+      #     summary: true
+
+      # - name: 🛡️🔼 Upload Docker Scout scan results to GitHub Security tab
+      #   uses: github/codeql-action/upload-sarif@v4.38.2 # https://github.com/github/codeql-action
+      #   with:
+      #     sarif_file: 'scout-results.sarif.json'
+
+# ---------------------------------------------------------------------------------------

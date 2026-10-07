@@ -1,0 +1,96 @@
+# Wörter, die nur in diesem Repo vorkommen (Addon-/Workbench-Namen etc.).
+# Wird über build-tools/cspell/cspell.config.json als "repo-words" geladen.
+#
+# Wichtig: cspell.matchCase ist nicht gesetzt, die Gross-/Kleinschreibung zaehlt
+# aber bei "caseSensitive": true fuer Markdown. Deshalb beide Schreibweisen.
+
+# --- Projekt und Toolnamen -------------------------------------------------
+Devbox
+devbox
+FreeCAD
+freecad
+freecadcmd
+CADMCP
+opencode
+neka
+Debian
+debian
+Trixie
+trixie
+Sid
+sid
+jakoch
+Jens
+Koch
+fluxbox
+llvmpipe
+rfbauth
+UIUC
+
+# --- Skriptnamen aus .devcontainer/scripts/runtime/ ----------------------
+healthcheck
+nopw
+
+# --- FreeCAD-Addons aus .devcontainer/versions.json -> .addons[] ----------
+AirPlaneDesign
+CarteGrid
+CurvedShapes
+CurvesWB
+SheetMetal
+
+# --- Fachbegriffe --------------------------------------------------------
+NURBS
+nurbs
+numpy
+scipy
+sdist
+bashism
+workbench
+addons
+codename
+dependabot
+semver
+Dockerfile
+Dockerfiles
+dockerfile
+
+# --- Deutsch ------------------------------------------------------------
+# cspell.config.json setzt "language": "en-US,de-DE", aber es gibt kein
+# de-DE-Woerterbuch, das mit `npm install -g cspell` mitkommt (das einzige
+# existierende Paket cspell-dict-de_de ist kaputt: package.json zeigt auf ein
+# index.js, das nicht mit ausgeliefert wird). update-pinned-version.sh ist
+# durchgaengig deutsch kommentiert, daher hier die Woerter aus dieser Datei.
+Absicht
+Argumente
+Erwartet
+FEHLER
+Komponente
+Logik
+Ohne
+Pfad
+Pflege
+Skript
+ansehen
+ausschreiben
+benoetigt
+bleibt
+damit
+durchgereicht
+eigentliche
+eine
+erhalten
+existiert
+fuer
+gefunden
+gehoert
+geschrieben
+kurzer
+langen
+liegt
+nicht
+nichts
+uebernehmen
+unter
+weil
+werden
+wird

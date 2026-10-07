@@ -1,0 +1,40 @@
+// For format details, see https://aka.ms/devcontainer.json
+{
+  "name": "FreeCAD Devbox",
+  "build": {
+	"dockerfile": "./debian/13-trixie/Dockerfile",
+    //"dockerfile": "./debian/14-forky/Dockerfile"
+    //"dockerfile": "./debian/sid-unstable/Dockerfile"
+    // Dockerfile COPY paths are relative to the repository root.
+    "context": ".."
+  },
+  // Set container specific settings.json values on container create.
+  "customizations": {
+    // Configure properties specific to VS Code.
+    "vscode": {
+      // Add the IDs of extensions you want installed when the container is created.
+      "extensions": [
+        // EditorConfig
+        "EditorConfig.EditorConfig",
+        "firsttris.vscode-jest-runner",
+        // biome
+        "biomejs.biome",
+        // Github Actions
+        "github.vscode-github-actions",
+        // jest
+        "orta.vscode-jest"
+      ]
+    },
+    "settings": {
+      "extensions.ignoreRecommendations": true,
+      "terminal.integrated.defaultProfile.linux": "zsh",
+      "terminal.integrated.shell.linux": "/bin/zsh",
+      // tell VSCode that you want the shell to be a login, interactive shell
+      "terminal.integrated.shellArgs.linux": ["-l", "-i"]
+    }
+  },
+  // XDG_RUNTIME_DIR wird vom Image gesetzt (/tmp/runtime-<UID>); das Verzeichnis
+  // muss nach jedem Container-Start existieren und dem Benutzer gehoeren.
+  "postStartCommand": "mkdir -p \"${XDG_RUNTIME_DIR:-/tmp/runtime-1000}\" && chmod 700 \"${XDG_RUNTIME_DIR:-/tmp/runtime-1000}\"",
+  "remoteUser": "vscode"
+}

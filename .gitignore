@@ -1,0 +1,4 @@
+# Local, unmaintained Dockerfile experiments. Not part of the image matrix and
+# not referenced by release.yml, dependabot.yml or devcontainer.json.
+.devcontainer/debian/13-trixie/Dockerfile.simple
+.devcontainer/debian/13-trixie/Dockerfile.slim

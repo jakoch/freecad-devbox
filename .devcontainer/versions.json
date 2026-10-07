@@ -1,0 +1,108 @@
+{
+  "resolveMode": "PINNED",
+  "freecad": {
+    "version": "1.1.4",
+    "sha256": "f6dc6ba676e5ac96a565ebc8d657232f94c6158e85b4352141bd1a46f6b43434",
+    "pythonTag": "py311",
+    "arch": "x86_64",
+    "install": "appimage"
+  },
+  "uv": {
+    "version": "0.12.23",
+    "sha256": "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6",
+    "arch": "x86_64",
+    "pythonVersion": "3.13"
+  },
+  "opencode": {
+    "version": "1.18.35",
+    "install": "registry",
+    "arch": "x86_64",
+    "binaryPackage": {
+      "name": "opencode-linux-x64",
+      "integrity": "sha512-xs/DPt8bK6NTWHpOlVJDWC/P3BnAuAQFHwa+mjrbxhDGd0Pi/GGWGjh4Sr4cpv6KwvfUKVoLKfHc/J8Nnz0XMg=="
+    }
+  },
+  "freecadMcp": {
+    "version": "0.1.25",
+    "wheel": {
+      "filename": "freecad_mcp-0.1.25-py3-none-any.whl",
+      "sha256": "e52f04f8042122f0917cdcc09ada9fe3a7ea6e34c255984af45e77a0dc4c3efa"
+    },
+    "sdist": {
+      "filename": "freecad_mcp-0.1.25.tar.gz",
+      "sha256": "28b7bb22cb43c3b1bb672bef409386310308a8366851ab8bdf50ab687c8b5123"
+    }
+  },
+  "addons": [
+    {
+      "name": "CurvedShapes",
+      "repo": "https://github.com/chbergmann/CurvedShapesWorkbench",
+      "branch": "master",
+      "ref": "3bc573d1fc020179fa59035fc44c112802f45b80",
+      "modDir": "CurvedShapes",
+      "packageVersion": "1.00.15",
+      "probe": "CurvedShapes",
+      "note": "Hard dependency of AirPlaneDesign: airPlaneWPanel.py imports CurvedShapes at module level, so without it the AirPlaneDesign workbench breaks. Not optional."
+    },
+    {
+      "name": "Curves",
+      "repo": "https://github.com/tomate44/CurvesWB",
+      "branch": "main",
+      "ref": "50d375d4b9ae091b7e46a30e97601284da1bfb59",
+      "modDir": "CurvesWB",
+      "packageVersion": "0.6.81",
+      "probe": "freecad.Curves",
+      "note": "NURBS curves and surfaces, for lofting and skinning. Needs numpy+scipy, both already in the AppImage."
+    },
+    {
+      "name": "AirPlaneDesign",
+      "repo": "https://github.com/FredsFactory/FreeCAD_AirPlaneDesign",
+      "branch": "master",
+      "ref": "e3a5124ae5f0a071e3f392363788956634f5dc2b",
+      "modDir": "AirPlaneDesign",
+      "packageVersion": "0.4.1",
+      "probe": null,
+      "note": "Author labels it highly experimental. GUI-only: its modules build QWidgets, so freecadcmd cannot import them. Needs CurvedShapes."
+    },
+    {
+      "name": "SheetMetal",
+      "repo": "https://github.com/shaise/FreeCAD_SheetMetal",
+      "branch": "master",
+      "ref": "a1cf212d8b86b3849e5cc12070226d5d4bded2a3",
+      "modDir": "SheetMetal",
+      "packageVersion": "0.8.24",
+      "probe": null,
+      "note": "Bend allowances and flat-pattern unfolding for folded-sheet parts. GUI-only."
+    },
+    {
+      "name": "Rocket",
+      "repo": "https://github.com/davesrocketshop/Rocket",
+      "branch": "master",
+      "ref": "20f74c12ad0c4b89cfe3a264bea476ff83443af8",
+      "modDir": "Rocket",
+      "packageVersion": "5.1.3",
+      "probe": null,
+      "note": "Nose cones, body tubes and filleted transitions. Requires FreeCAD 1.0+ and installs silently broken on older versions. GUI-only."
+    },
+    {
+      "name": "Vars",
+      "repo": "https://github.com/mnesarco/Vars",
+      "branch": "main",
+      "ref": "83f2669347c15f4e6922c9571510b8cee0ff9dc5",
+      "modDir": "Vars",
+      "packageVersion": "0.0.2.beta7",
+      "probe": "freecad.vars",
+      "note": "First-class document variables; decoupled dependencies avoid spurious recomputes when MCP rewrites a parameter. Author marks it alpha. Not a workbench: contributes commands only."
+    },
+    {
+      "name": "CarteGrid",
+      "repo": "https://github.com/MarcBresson/CarteGrid",
+      "branch": "main",
+      "ref": "77a72fdda4c1473422ba73b26ef37bdcd60aadf6",
+      "modDir": "CarteGrid",
+      "packageVersion": "1.3.1",
+      "probe": "freecad.cartegrid",
+      "note": "Batch-exports a parameter grid over App::VarSet. Upstream renamed FreeCAD-Parametric-Export to CarteGrid; the old URL redirects. Not a workbench: contributes commands only."
+    }
+  ]
+}

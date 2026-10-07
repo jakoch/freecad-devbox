@@ -1,0 +1,23 @@
+# LF is mandatory in this repository.
+#
+# The image executes .devcontainer/scripts/runtime/*.sh with /bin/sh and relies
+# on "RUN ... \" line continuations in the Dockerfiles. A CRLF checkout breaks
+# both: sh sees "set -eu\r" as an invalid option and dies on every container
+# start, and BuildKit's continuation handling is not CRLF-safe either.
+#
+# This is developed on Windows, where core.autocrlf=true is the default and
+# would rewrite every text file to CRLF on checkout. These rules pin it to LF.
+* text=auto eol=lf
+
+# --- Windows-native files keep CRLF ----------------------------------------
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# --- must never be rewritten or diffed as text ------------------------------
+# Hash-pinned lockfile: byte changes invalidate every download in the image.
+.devcontainer/requirements-freecad-mcp.lock text eol=lf -diff
+
+# The extracted AppImage tree is a binary payload, never checked in.
+*.AppImage binary
+*.squashfs-root/** binary

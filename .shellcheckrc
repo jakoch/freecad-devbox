@@ -1,0 +1,26 @@
+external-sources=true
+source-path=SCRIPTDIR
+
+# SC1007: "CDPATH= cd -- ..." is the POSIX idiom for cd'ing without CDPATH
+# printing the resolved path; shellcheck misreads the empty value as a typo.
+disable=SC1007
+
+# SC2016: single quotes are deliberate - help text that must show a literal
+# "$VAR", and printf format specifiers like 'pins: `%s`' where $s is not a var.
+disable=SC2016
+
+# SC2018/SC2019: `tr 'A-Z' 'a-z'` lowercases ASCII mode/arch values on purpose;
+# the [:upper:]/[:lower:] form would behave differently on non-ASCII input.
+disable=SC2018,SC2019
+
+# SC2034: colour variables are declared empty up front and assigned inside
+# init_colors(), then read from log()/ok()/warn() in the same file.
+disable=SC2034
+
+# SC2209: bareword literals like MODE=pinned, JSON_VALIDATOR=awk, MODE=dry-run
+# are values, not commands; shellcheck parses them as command substitution.
+disable=SC2209
+
+# SC2231: the `for _d in` list in find_qt_plugin_path ends in a deliberate glob
+# (usr/lib/<triple>/qt6/plugins/platforms) that must keep word-splitting.
+disable=SC2231

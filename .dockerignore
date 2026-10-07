@@ -1,0 +1,62 @@
+# Build context for the FreeCAD DevBox images.
+#
+# The image only needs four paths (see the COPY lines in the Dockerfiles):
+#   .devcontainer/versions.json
+#   .devcontainer/opencode/opencode.json
+#   .devcontainer/requirements-freecad-mcp.lock
+#   .devcontainer/scripts/runtime/
+#
+# Everything below is therefore excluded. This is a deny-list on purpose: if a
+# new COPY source is ever added to a Dockerfile, add it here too. Otherwise the
+# build fails loudly with "not found" instead of silently shipping the tree.
+#
+# The Dockerfile passed via -f is read directly from disk and does NOT need to be
+# in the context, so excluding the debian/ directory is safe.
+
+# --- version control --------------------------------------------------------
+.git
+.gitignore
+.gitattributes
+.github
+
+# --- host-only tooling, never baked into the image -------------------------
+# scripts/build/{resolve-versions,update-versions}.sh run on the host; only
+# scripts/runtime/ is COPY'd into the image.
+.devcontainer/scripts/build/
+.devcontainer/debian/
+.devcontainer/devcontainer.json
+README.md
+build.bat
+update-pinned-version.sh
+
+# --- Windows working-copy junk ----------------------------------------------
+# This repo is edited on a Windows drive, so these appear uninvited.
+Thumbs.db
+Thumbs.db:encryptable
+desktop.ini
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+
+# --- editor / OS noise ------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# --- language / build artefacts ---------------------------------------------
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/.mypy_cache/
+**/.pytest_cache/
+**/*.log
+*.AppImage
